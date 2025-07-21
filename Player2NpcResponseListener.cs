@@ -1,16 +1,14 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using Unity.Collections;
+using System.Text;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Networking;
-using UnityEngine.Serialization;
 
 [Serializable]
 public class NpcApiChatResponse
 {
-    public string npcID;
+    public string npc_id;
     public string message;
     public SingleTextToSpeechData audio;
     public List<FunctionCall> command;
@@ -34,85 +32,283 @@ public class NpcResponseEvent : UnityEvent<NpcApiChatResponse> { }
 
 public class Player2NpcResponseListener : MonoBehaviour
 {
-    [Header("Configuration")]
-    [SerializeField] private string baseUrl = "http://localhost:4315/v1";
-    [SerializeField] private string gameId = "unity";
-    
-    
-    private Coroutine _listeningCoroutine;
+    [SerializeField] private string _baseUrl = "http://localhost:4315/v1";
+    [SerializeField] private string _gameId;
+    [SerializeField] private float _reconnectDelay = 2.0f;
+    [SerializeField] private int _maxReconnectAttempts = 5;
 
+    private bool _isListening = false;
+    private int _reconnectAttempts = 0;
     private Dictionary<string, UnityEvent<NpcApiChatResponse>> _responseEvents = new Dictionary<string, UnityEvent<NpcApiChatResponse>>();
-    
-    
-    void Start()
+
+    public bool IsListening => _isListening;
+    public string GameId 
+    { 
+        get => _gameId; 
+        set => _gameId = value; 
+    }
+
+    private void Start()
     {
-        StartListening();
+        // Don't auto-start - let NpcManager control when to start
+        Debug.Log($"Player2NpcResponseListener initialized with GameId: {_gameId}");
+    }
+
+    public void SetGameId(string gameId)
+    {
+        _gameId = gameId;
     }
 
     public void RegisterNpc(string npcId, UnityEvent<NpcApiChatResponse> onNpcResponse)
     {
-        _responseEvents.Add(npcId, onNpcResponse);
+        if (_responseEvents.ContainsKey(npcId))
+        {
+            _responseEvents[npcId] = onNpcResponse;
+        }
+        else
+        {
+            _responseEvents.Add(npcId, onNpcResponse);
+        }
+        
+        Debug.Log($"Registered NPC response listener for: {npcId}");
+    }
+
+    public void UnregisterNpc(string npcId)
+    {
+        if (_responseEvents.ContainsKey(npcId))
+        {
+            _responseEvents.Remove(npcId);
+            Debug.Log($"Unregistered NPC response listener for: {npcId}");
+        }
     }
 
     public void StartListening()
     {
-        if (_listeningCoroutine != null)
-            StopCoroutine(_listeningCoroutine);
+        if (_isListening)
+        {
+            Debug.LogWarning("Already listening for responses");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(_gameId))
+        {
+            Debug.LogError("Cannot start listening: Game ID is not set");
+            return;
+        }
+
+        _isListening = true;
+        _reconnectAttempts = 0;
+        Debug.Log("Starting NPC response listener...");
         
-        _listeningCoroutine = StartCoroutine(ListenForResponses());
+        // Fire and forget async operation
+        _ = ListenForResponsesAsync();
     }
 
     public void StopListening()
     {
-        if (_listeningCoroutine != null)
-        {
-            StopCoroutine(_listeningCoroutine);
-            _listeningCoroutine = null;
-        }
+        if (!_isListening)
+            return;
+
+        _isListening = false;
+        Debug.Log("Stopped listening for NPC responses");
     }
 
-    private IEnumerator ListenForResponses()
+    private async Awaitable ListenForResponsesAsync()
     {
-        string url = $"{baseUrl}/npc/games/{gameId}/npcs/responses";
-        
-        using (UnityWebRequest request = UnityWebRequest.Get(url))
+        while (_isListening && this != null)
         {
-            request.SendWebRequest();
-            
-            string buffer = "";
-            
-            while (!request.isDone)
+            try
             {
-                if (request.downloadHandler.text.Length > buffer.Length)
+                Debug.Log("Starting streaming connection...");
+                await ProcessStreamingResponsesAsync();
+                
+                // If we get here and we're still supposed to be listening, 
+                // it means the connection ended unexpectedly - reconnect
+                if (_isListening)
                 {
-                    string newData = request.downloadHandler.text.Substring(buffer.Length);
-                    buffer = request.downloadHandler.text;
-                    
-                    string[] lines = newData.Split('\n');
-                    foreach (string line in lines)
-                    {
-                        if (!string.IsNullOrWhiteSpace(line))
-                        {
-                            try
-                            {
-                                NpcApiChatResponse response = JsonUtility.FromJson<NpcApiChatResponse>(line);
-                                _responseEvents[response.npcID]?.Invoke(response);
-                            }
-                            catch (Exception e)
-                            {
-                                Debug.LogError($"Failed to parse response: {e.Message}");
-                            }
-                        }
-                    }
+                    Debug.LogWarning("Streaming connection ended unexpectedly, attempting to reconnect...");
+                    await HandleReconnectionAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Error in response listener: {ex.Message}");
+                
+                if (_isListening)
+                {
+                    await HandleReconnectionAsync();
+                }
+                else
+                {
+                    Debug.Log("Stopping listener due to error while not listening");
+                    break;
+                }
+            }
+        }
+        
+        Debug.Log("Response listener task ended");
+    }
+
+    private async Awaitable ProcessStreamingResponsesAsync()
+    {
+        string url = $"{_baseUrl}/npc/games/{_gameId}/npcs/responses";
+        Debug.Log($"Connecting to response stream: {url}");
+
+        using var request = UnityWebRequest.Get(url);
+        
+        // Set headers for streaming
+        request.SetRequestHeader("Accept", "text/plain");
+        request.SetRequestHeader("Cache-Control", "no-cache");
+        request.SetRequestHeader("Connection", "keep-alive");
+        
+        // Start the request
+        var operation = request.SendWebRequest();
+        
+        StringBuilder lineBuffer = new StringBuilder();
+        int lastProcessedLength = 0;
+        bool connectionEstablished = false;
+
+        // Keep streaming until we stop listening or encounter an error
+        while (_isListening && this != null)
+        {
+            // Wait for connection to be established
+            if (!connectionEstablished && !operation.isDone)
+            {
+                await Awaitable.WaitForSecondsAsync(0.05f);
+                
+                // Check if connection failed
+                if (request.result == UnityWebRequest.Result.ConnectionError || 
+                    request.result == UnityWebRequest.Result.ProtocolError)
+                {
+                    throw new Exception($"Connection failed: {request.error}");
                 }
                 
-                yield return new WaitForSeconds(0.1f);
+                // Check if we have any data (connection established)
+                if (request.downloadHandler?.text?.Length > 0)
+                {
+                    connectionEstablished = true;
+                    Debug.Log("Streaming connection established");
+                }
+                
+                continue;
+            }
+            
+            connectionEstablished = true;
+
+            // Check for new data
+            var downloadHandler = request.downloadHandler;
+            if (downloadHandler != null && downloadHandler.text.Length > lastProcessedLength)
+            {
+                string newData = downloadHandler.text.Substring(lastProcessedLength);
+                lastProcessedLength = downloadHandler.text.Length;
+                
+                ProcessNewData(newData, lineBuffer);
+            }
+
+            // Check for connection errors during streaming
+            if (operation.isDone && request.result != UnityWebRequest.Result.Success)
+            {
+                throw new Exception($"Streaming connection lost: {request.error}");
+            }
+
+            // Small delay to prevent excessive polling
+            await Awaitable.WaitForSecondsAsync(0.05f);
+        }
+
+        Debug.Log("Streaming loop ended");
+    }
+
+    private void ProcessNewData(string newData, StringBuilder lineBuffer)
+    {
+        for (int i = 0; i < newData.Length; i++)
+        {
+            char c = newData[i];
+            
+            if (c == '\n')
+            {
+                // Process complete line
+                if (lineBuffer.Length > 0)
+                {
+                    ProcessLine(lineBuffer.ToString());
+                    lineBuffer.Clear();
+                }
+            }
+            else if (c != '\r') // Skip carriage returns
+            {
+                lineBuffer.Append(c);
             }
         }
     }
 
-    void OnDestroy()
+    private void ProcessLine(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line))
+            return;
+
+        try
+        {
+            NpcApiChatResponse response = JsonUtility.FromJson<NpcApiChatResponse>(line);
+            
+            if (response?.npc_id != null && _responseEvents.ContainsKey(response.npc_id))
+            {
+                Debug.Log($"Received response from NPC {response.npc_id}: {response.message}");
+                _responseEvents[response.npc_id]?.Invoke(response);
+                
+                // Reset reconnect attempts on successful message
+                _reconnectAttempts = 0;
+            }
+            else if (response?.npc_id != null)
+            {
+                Debug.LogWarning($"Received response for unregistered NPC: {response.npc_id}");
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Failed to parse response line '{line}': {e.Message}");
+        }
+    }
+
+    private async Awaitable HandleReconnectionAsync()
+    {
+        _reconnectAttempts++;
+        
+        if (_reconnectAttempts > _maxReconnectAttempts)
+        {
+            Debug.LogError($"Max reconnection attempts ({_maxReconnectAttempts}) reached. Stopping listener.");
+            _isListening = false;
+            return;
+        }
+
+        Debug.Log($"Reconnection attempt {_reconnectAttempts}/{_maxReconnectAttempts} in {_reconnectDelay} seconds...");
+        await Awaitable.WaitForSecondsAsync(_reconnectDelay);
+    }
+
+    private void OnDestroy()
     {
         StopListening();
+    }
+
+    private void OnApplicationPause(bool pauseStatus)
+    {
+        if (pauseStatus)
+        {
+            StopListening();
+        }
+        else if (!string.IsNullOrEmpty(_gameId))
+        {
+            StartListening();
+        }
+    }
+
+    private void OnApplicationFocus(bool hasFocus)
+    {
+        if (!hasFocus)
+        {
+            StopListening();
+        }
+        else if (!string.IsNullOrEmpty(_gameId))
+        {
+            StartListening();
+        }
     }
 }

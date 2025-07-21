@@ -1,8 +1,8 @@
-
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
+using JetBrains.Annotations;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -10,26 +10,34 @@ using UnityEngine.Networking;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
 
+
 [Serializable]
 public class SpawnNpc
 {
-    public string shortName;
+    public string short_name;
     public string name;
-    public string characterDescription;
-    public string systemPrompt;
-    public string voiceID;
+    public string character_description;
+    public string system_prompt;
+    public string voice_id;
     public List<Function> commands;
 }
-
 
 [Serializable]
 public class ChatRequest
 {
     public string sender_name;
     public string sender_message;
-    public string game_state_info;
-    public string tts;
+    [CanBeNull] public string game_state_info;
+    [CanBeNull] public TTS? tts;
 }
+
+[Serializable]
+public enum TTS
+{
+    local_client,
+    server
+}
+
 
 [Serializable]
 public class NpcSpawnedEvent : UnityEvent<string> { }
@@ -46,65 +54,62 @@ public class Player2Npc : MonoBehaviour
     [SerializeField] private bool persistent = false; 
     
     [Header("Events")]
-    [SerializeField] private UnityEvent spawnTrigger;
-
-    [SerializeField] private UnityEvent<ChatRequest> inputMessage;
-    [SerializeField] private UnityEvent<string> outputMessage;
-
-    
+    [SerializeField] private TMP_InputField inputField;
+    [SerializeField] private TextMeshProUGUI outputMessage;
 
     private string _npcID = null;
 
-    private string _gameID()
-    {
-        return npcManager.gameId;
-    }
+    private string _gameID() => npcManager.gameId;
+    private string _baseUrl() => NpcManager.GetBaseUrl();
 
-    private string _baseUrl() {
-        return npcManager.baseUrl;
-    }
     private void Start()
     {
-        inputMessage.AddListener(SendMessage);
-        // Subscribe to spawn trigger if it exists
-        if (spawnTrigger != null)
-        {
-            spawnTrigger.AddListener(SpawnNpc);
-        }
-        else {
-            // If no spawn trigger is set, spawn on start
-            SpawnNpc();
-        }
-    }
-    
-    private void SpawnNpc()
-    {
-        var spawnData = new SpawnNpc
-        {
-            shortName = shortName,
-            name = fullName,
-            characterDescription = characterDescription,
-            systemPrompt = systemPrompt,
-            voiceID = "test",
-            commands = npcManager.functions
-        };
-
-        StartCoroutine(SpawnNpcCoroutine(spawnData));
+        Debug.Log("Starting Player2Npc with NPC: " + fullName);
+        
+        inputField.onEndEdit.AddListener(OnChatMessageSubmitted);
+        inputField.onEndEdit.AddListener(_ => inputField.text = string.Empty);
+        
+        OnSpawnTriggered();
     }
 
-    private IEnumerator SpawnNpcCoroutine(SpawnNpc spawnData)
+    private void OnSpawnTriggered()
     {
-        string url = $"{_baseUrl()}/npc/games/{_gameID()}/npcs/spawn";
-        string json = JsonUtility.ToJson(spawnData);
-        byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
+        // Fire and forget async operation with proper error handling
+        _ = SpawnNpcAsync();
+    }
 
-        using (UnityWebRequest request = new UnityWebRequest(url, "POST"))
+    private void OnChatMessageSubmitted(string message)
+    {
+        _ = SendChatMessageAsync(message);
+    }
+
+    private async Awaitable SpawnNpcAsync()
+    {
+        try
         {
+            var spawnData = new SpawnNpc
+            {
+                short_name = shortName,
+                name = fullName,
+                character_description = characterDescription,
+                system_prompt = systemPrompt,
+                commands = npcManager.functions
+            };
+
+            string url = $"{_baseUrl()}/npc/games/{_gameID()}/npcs/spawn";
+            Debug.Log($"Spawning NPC at URL: {url}");
+            
+            string json = JsonUtility.ToJson(spawnData);
+            byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
+
+            using var request = new UnityWebRequest(url, "POST");
             request.uploadHandler = new UploadHandlerRaw(bodyRaw);
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
+            request.SetRequestHeader("Accept", "application/json");
 
-            yield return request.SendWebRequest();
+            // Use Unity's native Awaitable async method
+            await request.SendWebRequest();
 
             if (request.result == UnityWebRequest.Result.Success)
             {
@@ -114,59 +119,78 @@ public class Player2Npc : MonoBehaviour
             }
             else
             {
-                string error = $"Failed to spawn NPC: {request.error}";
+                string error = $"Failed to spawn NPC: {request.error} - Response: {request.downloadHandler.text}";
                 Debug.LogError(error);
             }
         }
-    }
-    
-    private IEnumerator SendChatCoroutine(ChatRequest chatRequest)
-    {
-        if (string.IsNullOrEmpty(_npcID))
+        catch (OperationCanceledException)
         {
-            string error = "NPC ID is not set!";
-            Debug.LogError(error);
-            yield break;
+            Debug.Log("NPC spawn operation was cancelled");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Unexpected error during NPC spawn: {ex.Message}");
+        }
+    }
+
+    private async Awaitable SendChatMessageAsync(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
         }
 
+        try
+        {
+            Debug.Log("Sending message to NPC: " + message);
+
+            if (string.IsNullOrEmpty(_npcID))
+            {
+                Debug.LogWarning("NPC ID is not set! Cannot send message.");
+                return;
+            }
+
+            var chatRequest = new ChatRequest
+            {
+                sender_name = fullName,
+                sender_message = message,
+                tts = null
+            };
+
+            await SendChatRequestAsync(chatRequest);
+        }
+        catch (OperationCanceledException)
+        {
+            Debug.Log("Chat message send operation was cancelled");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Unexpected error sending chat message: {ex.Message}");
+        }
+    }
+
+    private async Awaitable SendChatRequestAsync(ChatRequest chatRequest)
+    {
         string url = $"{_baseUrl()}/npc/games/{_gameID()}/npcs/{_npcID}/chat";
         string json = JsonUtility.ToJson(chatRequest);
         byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
 
-        using (UnityWebRequest request = new UnityWebRequest(url, "POST"))
+        using var request = new UnityWebRequest(url, "POST");
+        request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+        request.downloadHandler = new DownloadHandlerBuffer();
+        request.SetRequestHeader("Content-Type", "application/json");
+
+        // Use Unity's native Awaitable async method
+        await request.SendWebRequest();
+
+        if (request.result == UnityWebRequest.Result.Success)
         {
-            request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-            request.downloadHandler = new DownloadHandlerBuffer();
-            request.SetRequestHeader("Content-Type", "application/json");
-
-            yield return request.SendWebRequest();
-
-            if (request.result == UnityWebRequest.Result.Success)
-            {
-                Debug.Log($"Message sent successfully to NPC {_npcID}");
-            }
-            else
-            {
-                string error = $"Failed to send message: {request.error}";
-                Debug.LogError(error);
-            }
+            Debug.Log($"Message sent successfully to NPC {_npcID}");
         }
-    }
-
-    private void SendMessage(ChatRequest message)
-    {
-        if (_npcID != null)
+        else
         {
-            StartCoroutine(SendChatCoroutine(message));
-        }
-        
-    }
-
-    private void OnDestroy()
-    {
-        if (spawnTrigger != null)
-        {
-            spawnTrigger.RemoveListener(SpawnNpc);
+            string error = $"Failed to send message: {request.error} - Response: {request.downloadHandler.text}";
+            Debug.LogError(error);
         }
     }
 }
