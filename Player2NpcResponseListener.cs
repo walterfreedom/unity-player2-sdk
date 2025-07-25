@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using JetBrains.Annotations;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Networking;
@@ -9,9 +12,9 @@ using UnityEngine.Networking;
 public class NpcApiChatResponse
 {
     public string npc_id;
-    public string message;
-    public SingleTextToSpeechData audio;
-    public List<FunctionCall> command;
+    [CanBeNull] public string message;
+    [CanBeNull] public SingleTextToSpeechData audio;
+    [CanBeNull] public List<FunctionCallResponse> command;
 }
 
 [Serializable]
@@ -21,11 +24,30 @@ public class SingleTextToSpeechData
 }
 
 [Serializable]
-public class FunctionCall
+public class FunctionCallResponse
 {
     public string name;
     public string arguments;
+    
+    public FunctionCall ToFunctionCall()
+    {
+        var args = JsonConvert.DeserializeObject<JObject>(arguments);
+        return new FunctionCall
+        {
+            name = name,
+            arguments = args
+        };
+    }
 }
+
+[Serializable]
+public class FunctionCall
+{
+    public string name;
+    public JObject arguments;
+}
+
+
 
 [Serializable]
 public class NpcResponseEvent : UnityEvent<NpcApiChatResponse> { }
@@ -40,7 +62,8 @@ public class Player2NpcResponseListener : MonoBehaviour
     private bool _isListening = false;
     private int _reconnectAttempts = 0;
     private Dictionary<string, UnityEvent<NpcApiChatResponse>> _responseEvents = new Dictionary<string, UnityEvent<NpcApiChatResponse>>();
-
+    public JsonSerializerSettings JsonSerializerSettings;
+    
     public bool IsListening => _isListening;
     public string GameId 
     { 
@@ -247,7 +270,7 @@ public class Player2NpcResponseListener : MonoBehaviour
 
         try
         {
-            NpcApiChatResponse response = JsonUtility.FromJson<NpcApiChatResponse>(line);
+            NpcApiChatResponse response = JsonConvert.DeserializeObject<NpcApiChatResponse>(line, JsonSerializerSettings);
             
             if (response?.npc_id != null && _responseEvents.ContainsKey(response.npc_id))
             {

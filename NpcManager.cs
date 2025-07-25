@@ -3,33 +3,88 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
+using UnityEngine.Serialization;
 
 [Serializable]
 public class Function
 {
     public string name;
     public string description;
-    public Parameters parameters;
+    public List<FunctionArgument> functionArguments;
+
+    public SerializableFunction ToSerializableFunction()
+    {
+        
+        var props = new Dictionary<string, SerializedArguments>();
+        
+        for (int i = 0; i < functionArguments.Count; i++)
+        {
+            var arg = functionArguments[i];
+            props[arg.argumentName] = new SerializedArguments
+            {
+                type = arg.argumentType,
+                description = arg.argumentDescription
+            };
+        }
+        Debug.Log(props);
+        return new SerializableFunction
+        {
+            name = name,
+            description = description,
+            parameters = new Parameters
+            {
+                Properties = props,
+                required = functionArguments.FindAll(arg => arg.required).ConvertAll(arg => arg.argumentName),
+            }
+        };
+    }
 }
 
+
 [Serializable]
-public class Parameters
+public class FunctionArgument
 {
-    public string type;
-    public Dictionary<string, object> properties;
-    public List<string> required;
+    public string argumentName;
+    public string argumentType;
+    public string argumentDescription;
+    public bool required;
 }
+
+
 
 public class NpcManager : MonoBehaviour
 {
     [Header("Config")]
     [SerializeField] public string gameId = "your-game-id";
     
-    private UnityEvent<Function> _functionEvent;
     private Player2NpcResponseListener _responseListener;
     
     [Header("Functions")] 
     [SerializeField] public List<Function> functions;
+    [SerializeField] public UnityEvent<FunctionCall> functionHandler;
+
+    public readonly JsonSerializerSettings JsonSerializerSettings = new JsonSerializerSettings
+    {
+        NullValueHandling = NullValueHandling.Ignore,
+        ContractResolver = new DefaultContractResolver
+        {
+            NamingStrategy = new SnakeCaseNamingStrategy(),
+        }
+    };
+    
+    public List<SerializableFunction> GetSerializableFunctions()
+    {
+        var serializableFunctions = new List<SerializableFunction>();
+        foreach (var function in functions)
+        {
+            serializableFunctions.Add(function.ToSerializableFunction());
+        }
+        return serializableFunctions;
+    }
+    
+    
     
     private const string BaseUrl = "http://localhost:4315/v1";
     
@@ -43,6 +98,7 @@ public class NpcManager : MonoBehaviour
         // Add the component and configure it
         _responseListener = gameObject.AddComponent<Player2NpcResponseListener>();
         _responseListener.SetGameId(gameId);
+        _responseListener.JsonSerializerSettings = JsonSerializerSettings;
         
         Debug.Log($"NpcManager initialized with gameId: {gameId}");
     }
@@ -77,15 +133,25 @@ public class NpcManager : MonoBehaviour
         var onNpcApiResponse = new UnityEvent<NpcApiChatResponse>();
         onNpcApiResponse.AddListener((response) =>
         {
-            if (response != null && !string.IsNullOrEmpty(response.message))
+            if (response != null)
             {
-                Debug.Log($"Updating UI for NPC {id}: {response.message}");
-                onNpcResponse.text = response.message;
+                if (!string.IsNullOrEmpty(response.message))
+                {
+                    Debug.Log($"Updating UI for NPC {id}: {response.message}");
+                    onNpcResponse.text = response.message;
+                }
+
+                
+                if (response.command != null)
+                {
+                    foreach (var functionCall in response.command)
+                    {
+                        functionHandler.Invoke(functionCall.ToFunctionCall());
+                    }
+    
+                }
             }
-            else
-            {
-                Debug.LogWarning($"Received empty or null response for NPC {id}");
-            }
+
         });
 
         _responseListener.RegisterNpc(id, onNpcApiResponse);
@@ -148,4 +214,28 @@ public class NpcManager : MonoBehaviour
             Debug.Log($"Response listener status: IsListening={_responseListener.IsListening}, GameId={_responseListener.GameId}");
         }
     }
+}
+
+[Serializable]
+public class SerializableFunction
+{
+    public string name;
+    public string description;
+    public Parameters parameters;
+    
+}
+
+[Serializable]
+public class Parameters
+{
+    public Dictionary<string, SerializedArguments> Properties { get; set; }
+    public List<string> required;
+    public string type = "object";
+}
+
+[Serializable]
+public class SerializedArguments
+{
+    public string type;
+    public string description;
 }

@@ -9,7 +9,8 @@ using UnityEngine.Events;
 using UnityEngine.Networking;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
-
+using Newtonsoft.Json;
+using Unity.VisualScripting;
 
 [Serializable]
 public class SpawnNpc
@@ -18,8 +19,8 @@ public class SpawnNpc
     public string name;
     public string character_description;
     public string system_prompt;
-    public string voice_id;
-    public List<Function> commands;
+    [CanBeNull] public string voice_id;
+    public List<SerializableFunction> commands;
 }
 
 [Serializable]
@@ -93,13 +94,14 @@ public class Player2Npc : MonoBehaviour
                 name = fullName,
                 character_description = characterDescription,
                 system_prompt = systemPrompt,
-                commands = npcManager.functions
+                voice_id = "test",
+                commands = npcManager.GetSerializableFunctions()
             };
 
             string url = $"{_baseUrl()}/npc/games/{_gameID()}/npcs/spawn";
             Debug.Log($"Spawning NPC at URL: {url}");
             
-            string json = JsonUtility.ToJson(spawnData);
+            string json = JsonConvert.SerializeObject(spawnData, npcManager.JsonSerializerSettings);
             byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
 
             using var request = new UnityWebRequest(url, "POST");
@@ -172,7 +174,7 @@ public class Player2Npc : MonoBehaviour
     private async Awaitable SendChatRequestAsync(ChatRequest chatRequest)
     {
         string url = $"{_baseUrl()}/npc/games/{_gameID()}/npcs/{_npcID}/chat";
-        string json = JsonUtility.ToJson(chatRequest);
+        string json = JsonConvert.SerializeObject(chatRequest, npcManager.JsonSerializerSettings);
         byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
 
         using var request = new UnityWebRequest(url, "POST");
