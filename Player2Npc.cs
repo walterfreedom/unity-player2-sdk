@@ -49,21 +49,21 @@ namespace player2_sdk
     {
     }
 
-    public class Player2Npc : MonoBehaviour
-    {
-        [Header("State Config")] [SerializeField]
-        private NpcManager npcManager;
-
-        [Header("NPC Configuration")] [SerializeField]
-        private string shortName = "Victor";
-
-        [SerializeField] private string fullName = "Victor J. Johnson";
-        [SerializeField] private string characterDescription = "A crazed scientist on the hunt for gold";
-        [SerializeField] private string systemPrompt = "You are a mad scientist obsessed with finding gold.";
-        [SerializeField] private bool persistent = false;
-
-        [Header("Events")] [SerializeField] private TMP_InputField inputField;
-        [SerializeField] private TextMeshProUGUI outputMessage;
+public class Player2Npc : MonoBehaviour
+{
+    [Header("State Config")] 
+    [SerializeField] private NpcManager npcManager;
+    [Header("NPC Configuration")]
+    [SerializeField] private string shortName = "Victor";
+    [SerializeField] private string fullName = "Victor J. Johnson";
+    [SerializeField] private string characterDescription = "A crazed scientist on the hunt for gold";
+    [SerializeField] private string systemPrompt = "You are a mad scientist obsessed with finding gold.";
+    [SerializeField] private bool persistent = false; 
+    
+    [Header("Events")]
+    [SerializeField] private TMP_InputField inputField;
+    [SerializeField] private TextMeshProUGUI outputMessage;
+    [SerializeField] private SimpleChatBubble chatBubble;
 
         private string _npcID = null;
 
@@ -142,12 +142,12 @@ namespace player2_sdk
             }
         }
 
-        private async Awaitable SendChatMessageAsync(string message)
+    public async Awaitable SendChatMessageAsync(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
         {
-            if (string.IsNullOrWhiteSpace(message))
-            {
-                return;
-            }
+            return;
+        }
 
             try
             {

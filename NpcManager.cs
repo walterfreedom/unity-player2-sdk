@@ -132,27 +132,28 @@ namespace player2_sdk
 
             Debug.Log($"Registering NPC with ID: {id}");
 
-            var onNpcApiResponse = new UnityEvent<NpcApiChatResponse>();
-            onNpcApiResponse.AddListener((response) =>
+        var onNpcApiResponse = new UnityEvent<NpcApiChatResponse>();
+        onNpcApiResponse.AddListener((response) =>
+        {
+            if (response != null)
             {
-                if (response != null)
+                if (!string.IsNullOrEmpty(response.message))
                 {
-                    if (!string.IsNullOrEmpty(response.message))
+                    Debug.Log($"Updating UI for NPC {id}: {response.message}");
+                    onNpcResponse.text = response.message;
+                    var simpleChatBubble = npcObject.GetComponent<SimpleChatBubble>();
+                    simpleChatBubble.Show(response.message);
+                }
+                if (response.command != null)
+                {
+                    foreach (var functionCall in response.command)
                     {
-                        Debug.Log($"Updating UI for NPC {id}: {response.message}");
-                        onNpcResponse.text = response.message;
-                    }
-
-
-                    if (response.command != null)
-                    {
-                        foreach (var functionCall in response.command)
-                        {
-                            functionHandler.Invoke(functionCall.ToFunctionCall(npcObject));
-                        }
+                        functionHandler.Invoke(functionCall.ToFunctionCall(npcObject));
                     }
                 }
-            });
+            }
+
+        });
 
             _responseListener.RegisterNpc(id, onNpcApiResponse);
 
