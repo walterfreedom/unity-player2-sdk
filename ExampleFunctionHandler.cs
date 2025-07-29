@@ -1,20 +1,23 @@
-using System;
-using UnityEngine;
-
-[Serializable]
-public class ExampleFunctionHandler: MonoBehaviour
+namespace player2_sdk
 {
-    public void HandleFunctionCall(FunctionCall functionCall)
+    using System;
+    using UnityEngine;
+
+    [Serializable]
+    public class ExampleFunctionHandler: MonoBehaviour
     {
-        Debug.Log($"Handling function call: {functionCall.name}");
-        
-        // Example: Just log the arguments
-        foreach (var arg in functionCall.arguments)
+        public void HandleFunctionCall(FunctionCall functionCall)
         {
-            Debug.Log($"Argument: {arg.Key} = {arg.Value}");
-        }
+            Debug.Log($"Handling function call: {functionCall.name}");
         
-        // Here you would implement your actual function logic
-        // For example, if this is a chat function, you might send a message to the NPC
+            // Example: Just log the arguments
+            foreach (var arg in functionCall.arguments)
+            {
+                Debug.Log($"Argument: {arg.Key} = {arg.Value}");
+            }
+        
+            // Here you would implement your actual function logic
+            // For example, if this is a chat function, you might send a message to the NPC
+        }
     }
 }
