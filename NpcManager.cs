@@ -115,8 +115,8 @@ namespace player2_sdk
             }
 
         }
-
-        public void RegisterNpc(string id, TextMeshProUGUI onNpcResponse)
+        
+        public void RegisterNpc(string id, TextMeshProUGUI onNpcResponse, GameObject npcObject)
         {
             if (_responseListener == null)
             {
@@ -148,12 +148,10 @@ namespace player2_sdk
                     {
                         foreach (var functionCall in response.command)
                         {
-                            functionHandler.Invoke(functionCall.ToFunctionCall());
+                            functionHandler.Invoke(functionCall.ToFunctionCall(npcObject));
                         }
-
                     }
                 }
-
             });
 
             _responseListener.RegisterNpc(id, onNpcApiResponse);

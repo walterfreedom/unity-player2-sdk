@@ -33,13 +33,14 @@ namespace player2_sdk
         public string name;
         public string arguments;
 
-        public FunctionCall ToFunctionCall()
+    public FunctionCall ToFunctionCall(GameObject ai)
         {
             var args = JsonConvert.DeserializeObject<JObject>(arguments);
             return new FunctionCall
             {
                 name = name,
-                arguments = args
+            arguments = args,
+            aiObject = ai
             };
         }
     }
@@ -49,6 +50,7 @@ namespace player2_sdk
     {
         public string name;
         public JObject arguments;
+    public GameObject aiObject;
     }
 
 
