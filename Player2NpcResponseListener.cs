@@ -29,13 +29,14 @@ public class FunctionCallResponse
     public string name;
     public string arguments;
     
-    public FunctionCall ToFunctionCall()
+    public FunctionCall ToFunctionCall(GameObject ai)
     {
         var args = JsonConvert.DeserializeObject<JObject>(arguments);
         return new FunctionCall
         {
             name = name,
-            arguments = args
+            arguments = args,
+            aiObject = ai
         };
     }
 }
@@ -45,6 +46,7 @@ public class FunctionCall
 {
     public string name;
     public JObject arguments;
+    public GameObject aiObject;
 }
 
 

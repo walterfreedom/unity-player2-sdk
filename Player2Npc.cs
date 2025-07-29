@@ -117,7 +117,7 @@ public class Player2Npc : MonoBehaviour
             {
                 _npcID = request.downloadHandler.text.Trim('"');
                 Debug.Log($"NPC spawned successfully with ID: {_npcID}");
-                npcManager.RegisterNpc(_npcID, outputMessage);
+                npcManager.RegisterNpc(_npcID, outputMessage,gameObject);
             }
             else
             {

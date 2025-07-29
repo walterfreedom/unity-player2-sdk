@@ -113,8 +113,7 @@ public class NpcManager : MonoBehaviour
         }
         
     }
-
-    public void RegisterNpc(string id, TextMeshProUGUI onNpcResponse)
+    public void RegisterNpc(string id, TextMeshProUGUI onNpcResponse, GameObject npcObject)
     {
         if (_responseListener == null)
         {
@@ -146,7 +145,7 @@ public class NpcManager : MonoBehaviour
                 {
                     foreach (var functionCall in response.command)
                     {
-                        functionHandler.Invoke(functionCall.ToFunctionCall());
+                        functionHandler.Invoke(functionCall.ToFunctionCall(npcObject));
                     }
     
                 }
