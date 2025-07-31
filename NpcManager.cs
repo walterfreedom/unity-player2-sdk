@@ -62,10 +62,11 @@ namespace player2_sdk
         [Header("Config")] [SerializeField] public string gameId = "your-game-id";
 
         private Player2NpcResponseListener _responseListener;
+        private BasicAgentsManager agentsManager;
 
         [Header("Functions")] [SerializeField] public List<Function> functions;
         [SerializeField] public UnityEvent<FunctionCall> functionHandler;
-
+        
         public readonly JsonSerializerSettings JsonSerializerSettings = new JsonSerializerSettings
         {
             NullValueHandling = NullValueHandling.Ignore,
@@ -101,6 +102,7 @@ namespace player2_sdk
             _responseListener = gameObject.AddComponent<Player2NpcResponseListener>();
             _responseListener.SetGameId(gameId);
             _responseListener.JsonSerializerSettings = JsonSerializerSettings;
+            agentsManager = FindObjectOfType<BasicAgentsManager>();
 
             Debug.Log($"NpcManager initialized with gameId: {gameId}");
         }
@@ -141,8 +143,20 @@ namespace player2_sdk
                 {
                     Debug.Log($"Updating UI for NPC {id}: {response.message}");
                     onNpcResponse.text = response.message;
-                    var simpleChatBubble = npcObject.GetComponent<SimpleChatBubble>();
-                    simpleChatBubble.Show(response.message);
+                    Player2Npc npcstats =  npcObject.GetComponent<Player2Npc>();
+                    npcstats.chatBubble.Show(response.message);
+                    var colls = Physics2D.OverlapCircleAll(npcObject.transform.position, 5f);
+                    foreach (var col in colls)
+                    {
+                        // If the collider is on a child, use the Rigidbody holder; otherwise use the collider GO.
+                        var go = col.attachedRigidbody ? col.attachedRigidbody.gameObject : col.gameObject;
+
+                        if (go.TryGetComponent<Player2Npc>(out Player2Npc p2n))
+                        {
+                            agentsManager.AddMessageToAgent(response.message, npcstats.shortName , p2n.shortName);
+                        }
+                    }
+                    
                 }
                 if (response.command != null)
                 {

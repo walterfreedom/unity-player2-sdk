@@ -54,7 +54,7 @@ public class Player2Npc : MonoBehaviour
     [Header("State Config")] 
     [SerializeField] private NpcManager npcManager;
     [Header("NPC Configuration")]
-    [SerializeField] private string shortName = "Victor";
+    [SerializeField] public string shortName = "Victor";
     [SerializeField] private string fullName = "Victor J. Johnson";
     [SerializeField] private string characterDescription = "A crazed scientist on the hunt for gold";
     [SerializeField] private string systemPrompt = "You are a mad scientist obsessed with finding gold.";
@@ -63,7 +63,7 @@ public class Player2Npc : MonoBehaviour
     [Header("Events")]
     [SerializeField] private TMP_InputField inputField;
     [SerializeField] private TextMeshProUGUI outputMessage;
-    [SerializeField] private SimpleChatBubble chatBubble;
+    [SerializeField] public SimpleChatBubble chatBubble;
 
         private string _npcID = null;
 
@@ -116,7 +116,10 @@ public class Player2Npc : MonoBehaviour
                 request.downloadHandler = new DownloadHandlerBuffer();
                 request.SetRequestHeader("Content-Type", "application/json");
                 request.SetRequestHeader("Accept", "application/json");
-
+                
+                BasicAgentsManager agentsManager = FindObjectOfType<BasicAgentsManager>(true);
+                Debug.Log("calling Register NPC for Agents Manager");
+                agentsManager.GetOrCreateAgent(shortName, this);
                 // Use Unity's native Awaitable async method
                 await request.SendWebRequest();
 
@@ -140,6 +143,36 @@ public class Player2Npc : MonoBehaviour
             {
                 Debug.LogError($"Unexpected error during NPC spawn: {ex.Message}");
             }
+        }
+
+        private string extraInstructions(string gamestate)
+        {
+            return "If the Message is not directed to you, you do not have to answer. Instead, answer [SILENT]. You are allowed" +
+                   "to intterrupt conversations if you have significant contribution" +gamestate;
+        }
+
+        private string getNearbyOtherNPCs()
+        {
+            const float radius = 10f;
+
+            Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, radius);
+            var names = new List<string>();
+            var seen = new HashSet<GameObject>();
+
+            foreach (var col in hits)
+            {
+                if (!col) continue;
+
+                // If they have a Rigidbody2D, use that GO to avoid child-collider duplicates
+                GameObject go = col.attachedRigidbody ? col.attachedRigidbody.gameObject : col.gameObject;
+                if (go == gameObject) continue;
+
+                if (go.GetComponent<Player2Npc>() != null && seen.Add(go))
+                    names.Add(go.GetComponent<Player2Npc>().fullName);
+            }
+
+            string detected =  string.Join(",", names);
+            return "Nearby NPCs: " + detected;
         }
 
     public async Awaitable SendChatMessageAsync(string message)
@@ -180,6 +213,9 @@ public class Player2Npc : MonoBehaviour
 
         private async Awaitable SendChatRequestAsync(ChatRequest chatRequest)
         {
+            Debug.Log("Current state for the NPC " + shortName + ": " + chatRequest.game_state_info );
+            chatRequest.game_state_info +=  extraInstructions(getNearbyOtherNPCs());
+            
             string url = $"{_baseUrl()}/npc/games/{_gameID()}/npcs/{_npcID}/chat";
             string json = JsonConvert.SerializeObject(chatRequest, npcManager.JsonSerializerSettings);
             byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
