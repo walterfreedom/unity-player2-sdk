@@ -215,7 +215,7 @@ public class Player2Npc : MonoBehaviour
         {
             Debug.Log("Current state for the NPC " + shortName + ": " + chatRequest.game_state_info );
             chatRequest.game_state_info +=  extraInstructions(getNearbyOtherNPCs());
-            
+            Debug.Log("Current state for the NPC " + shortName + ": " + chatRequest.game_state_info );
             string url = $"{_baseUrl()}/npc/games/{_gameID()}/npcs/{_npcID}/chat";
             string json = JsonConvert.SerializeObject(chatRequest, npcManager.JsonSerializerSettings);
             byte[] bodyRaw = Encoding.UTF8.GetBytes(json);

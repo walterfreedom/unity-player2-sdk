@@ -137,8 +137,10 @@ namespace player2_sdk
         var onNpcApiResponse = new UnityEvent<NpcApiChatResponse>();
         onNpcApiResponse.AddListener((response) =>
         {
+            Debug.Log("Recieved Message1");
             if (response != null)
             {
+                Debug.Log("Recieved Message");
                 if (!string.IsNullOrEmpty(response.message))
                 {
                     Debug.Log($"Updating UI for NPC {id}: {response.message}");

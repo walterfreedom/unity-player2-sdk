@@ -7,6 +7,7 @@ using UnityEngine;
 [Serializable]
 public class ExampleFunctionHandler: MonoBehaviour
 {
+    public BasicAgentsManager AgentsManager;
     public void HandleFunctionCall(FunctionCall functionCall)
     {
         Debug.Log($"Handling function call: {functionCall.name}");
@@ -35,35 +36,35 @@ public class ExampleFunctionHandler: MonoBehaviour
                     Debug.Log("found target");
                     if (stats.name == name)
                     {
+                        Debug.Log("correct target");
                         aImovement.follow(col.gameObject.transform);
                         break;
                     }
                 }
             }
         }
-  
-        
-            // Example: Just log the arguments
-            foreach (var arg in functionCall.arguments)
-            {
-                Debug.Log($"Argument: {arg.Key} = {arg.Value}");
-            }
-        
-        //optional: use npcObject to access the name of the NPC that called the function. prints the name of the gameobject.
-        try
+        if (functionCall.name == "StopFollow")
         {
-           Debug.Log(functionCall.aiObject.name);
+            var aImovement = functionCall.aiObject.GetComponent<AImovement>();
+            aImovement.StopFollow();
         }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            throw;
-        }
-       
 
-            // Here you would implement your actual function logic
-            // For example, if this is a chat function, you might send a message to the NPC
+        if (functionCall.name == "travelTo")
+        {
+            var aImovement = functionCall.aiObject.GetComponent<AImovement>();
+            var args = (JObject)functionCall.arguments;
+            Debug.Log("I got called");
+            LocationEntry loc; 
+            if (AgentsManager.TryGetLocation((string)args["location"], out loc))
+            {
+                aImovement.goTo(loc.value.position);
+            }
         }
+
+        Player2Npc p2 = functionCall.aiObject.GetComponent<Player2Npc>();
+        p2.SendChatMessageAsync("System: Tool executed successfully");
+        //we need to query the AI again after tool call, to form a basic event chain
     }
+}
 
 
