@@ -30,8 +30,7 @@ namespace player2_sdk
                     description = arg.argumentDescription
                 };
             }
-
-            Debug.Log(props);
+            
             return new SerializableFunction
             {
                 name = name,
@@ -131,17 +130,16 @@ namespace player2_sdk
                 Debug.LogError("Cannot register NPC with empty ID");
                 return;
             }
+            
 
-            Debug.Log($"Registering NPC with ID: {id}");
-
-        var onNpcApiResponse = new UnityEvent<NpcApiChatResponse>();
-        onNpcApiResponse.AddListener((response) =>
-        {
-            Debug.Log("Recieved Message1");
+            var onNpcApiResponse = new UnityEvent<NpcApiChatResponse>();
+            onNpcApiResponse.AddListener((response) =>
+            {
+                Debug.Log("Recieved Message11");
             if (response != null)
             {
                 Debug.Log("Recieved Message");
-                if (!string.IsNullOrEmpty(response.message))
+                if (!string.IsNullOrEmpty(response.message) && !response.message.Contains("[SILENT]"))
                 {
                     Debug.Log($"Updating UI for NPC {id}: {response.message}");
                     onNpcResponse.text = response.message;
@@ -155,6 +153,10 @@ namespace player2_sdk
 
                         if (go.TryGetComponent<Player2Npc>(out Player2Npc p2n))
                         {
+                            if (p2n.name == npcObject.name)
+                            {
+                                continue;
+                            }
                             agentsManager.AddMessageToAgent(response.message, npcstats.shortName , p2n.shortName);
                         }
                     }

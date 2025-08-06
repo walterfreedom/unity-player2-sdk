@@ -4,6 +4,7 @@ namespace player2_sdk
 
     using System;
     using System.Collections.Generic;
+    using System.Linq;
     using System.Text;
     using System.Threading;
     using JetBrains.Annotations;
@@ -116,10 +117,6 @@ public class Player2Npc : MonoBehaviour
                 request.downloadHandler = new DownloadHandlerBuffer();
                 request.SetRequestHeader("Content-Type", "application/json");
                 request.SetRequestHeader("Accept", "application/json");
-                
-                BasicAgentsManager agentsManager = FindObjectOfType<BasicAgentsManager>(true);
-                Debug.Log("calling Register NPC for Agents Manager");
-                agentsManager.GetOrCreateAgent(shortName, this);
                 // Use Unity's native Awaitable async method
                 await request.SendWebRequest();
 
@@ -144,36 +141,7 @@ public class Player2Npc : MonoBehaviour
                 Debug.LogError($"Unexpected error during NPC spawn: {ex.Message}");
             }
         }
-
-        private string extraInstructions(string gamestate)
-        {
-            return "If the Message is not directed to you, you do not have to answer. Instead, answer [SILENT]. You are allowed" +
-                   "to intterrupt conversations if you have significant contribution" +gamestate;
-        }
-
-        private string getNearbyOtherNPCs()
-        {
-            const float radius = 10f;
-
-            Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, radius);
-            var names = new List<string>();
-            var seen = new HashSet<GameObject>();
-
-            foreach (var col in hits)
-            {
-                if (!col) continue;
-
-                // If they have a Rigidbody2D, use that GO to avoid child-collider duplicates
-                GameObject go = col.attachedRigidbody ? col.attachedRigidbody.gameObject : col.gameObject;
-                if (go == gameObject) continue;
-
-                if (go.GetComponent<Player2Npc>() != null && seen.Add(go))
-                    names.Add(go.GetComponent<Player2Npc>().fullName);
-            }
-
-            string detected =  string.Join(",", names);
-            return "Nearby NPCs: " + detected;
-        }
+        
 
     public async Awaitable SendChatMessageAsync(string message)
     {
@@ -210,11 +178,22 @@ public class Player2Npc : MonoBehaviour
                 Debug.LogError($"Unexpected error sending chat message: {ex.Message}");
             }
         }
-
+    
         private async Awaitable SendChatRequestAsync(ChatRequest chatRequest)
         {
+            Agent agent;
+            if (TryGetComponent<Agent>(out var component))
+            { 
+                agent = component;
+            }
+            else
+            {
+                print("Error getting agent");
+                return;
+            }
+            
             Debug.Log("Current state for the NPC " + shortName + ": " + chatRequest.game_state_info );
-            chatRequest.game_state_info +=  extraInstructions(getNearbyOtherNPCs());
+            chatRequest.game_state_info = agent.BuildGameState();
             Debug.Log("Current state for the NPC " + shortName + ": " + chatRequest.game_state_info );
             string url = $"{_baseUrl()}/npc/games/{_gameID()}/npcs/{_npcID}/chat";
             string json = JsonConvert.SerializeObject(chatRequest, npcManager.JsonSerializerSettings);
