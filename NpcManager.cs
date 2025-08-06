@@ -61,6 +61,8 @@ namespace player2_sdk
     {
         [Header("Config")] [SerializeField] public string gameId = "your-game-id";
 
+        [SerializeField] public bool TTS = false;
+        
         private Player2NpcResponseListener _responseListener;
 
         [Header("Functions")] [SerializeField] public List<Function> functions;

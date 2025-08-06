@@ -33,22 +33,9 @@ namespace player2_sdk
         public string sender_name;
         public string sender_message;
         [CanBeNull] public string game_state_info;
-        [CanBeNull] public TTS? tts;
+        [CanBeNull] public string? tts;
     }
-
-    [Serializable]
-    public enum TTS
-    {
-        local_client,
-        server
-    }
-
-
-    [Serializable]
-    public class NpcSpawnedEvent : UnityEvent<string>
-    {
-    }
-
+    
     public class Player2Npc : MonoBehaviour
     {
         [Header("State Config")] [SerializeField]
@@ -60,6 +47,7 @@ namespace player2_sdk
         [SerializeField] private string fullName = "Victor J. Johnson";
         [SerializeField] private string characterDescription = "A crazed scientist on the hunt for gold";
         [SerializeField] private string systemPrompt = "You are a mad scientist obsessed with finding gold.";
+        [SerializeField] public string voiceId = "01955d76-ed5b-7451-92d6-5ef579d3ed28";
         [SerializeField] private bool persistent = false;
 
         [Header("Events")] [SerializeField] private TMP_InputField inputField;
@@ -101,7 +89,7 @@ namespace player2_sdk
                     name = fullName,
                     character_description = characterDescription,
                     system_prompt = systemPrompt,
-                    voice_id = "test",
+                    voice_id = voiceId,
                     commands = npcManager.GetSerializableFunctions()
                 };
 
@@ -180,6 +168,10 @@ namespace player2_sdk
 
         private async Awaitable SendChatRequestAsync(ChatRequest chatRequest)
         {
+            if (npcManager.TTS)
+            {
+                chatRequest.tts = "local_client";
+            }
             string url = $"{_baseUrl()}/npc/games/{_gameID()}/npcs/{_npcID}/chat";
             string json = JsonConvert.SerializeObject(chatRequest, npcManager.JsonSerializerSettings);
             byte[] bodyRaw = Encoding.UTF8.GetBytes(json);
