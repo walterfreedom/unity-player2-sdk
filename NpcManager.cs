@@ -144,6 +144,8 @@ namespace player2_sdk
                     Debug.Log($"Updating UI for NPC {id}: {response.message}");
                     onNpcResponse.text = response.message;
                     Player2Npc npcstats =  npcObject.GetComponent<Player2Npc>();
+                    Agent agent = npcObject.GetComponent<Agent>();
+                    agent.wholeMessageAndEventHistory += response.message;
                     npcstats.chatBubble.Show(response.message);
                     var colls = Physics2D.OverlapCircleAll(npcObject.transform.position, 5f);
                     foreach (var col in colls)

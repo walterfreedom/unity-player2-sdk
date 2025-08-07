@@ -114,6 +114,32 @@ public class ExampleFunctionHandler: MonoBehaviour
             AImovement aImovement = functionCall.aiObject.GetComponent<AImovement>();
             aImovement.goTo(obj.transform.position);
         }
+        if (functionCall.name == "gather")
+        {
+            Debug.Log("AI is trying to gather something!");
+            var args = (JObject)functionCall.arguments;
+            string lookingFor = (string)args["name"];
+            int amount = (int)args["amount"];
+            functionCall.aiObject.TryGetComponent<AIstats>( out var a);
+            a.thingsToPickUp[lookingFor] = amount;
+            p2.SendChatMessageAsync("System: Added "+lookingFor+" to gather list. Initiating Gather State. ");
+
+        }
+
+        if (functionCall.name == "drop")
+        {
+            Debug.Log("AI is trying to DROP something!");
+            var args = (JObject)functionCall.arguments;
+            string lookingFor = (string)args["name"];
+            int amount = (int)args["amount"];
+            functionCall.aiObject.TryGetComponent<AIstats>( out var a);
+            for (int i = 0; i < amount; i++)
+            {
+                a.aiInventory.DropOne(lookingFor,functionCall.aiObject.transform.position);
+            }
+           
+        }
+        
 
         if (functionCall.name == "findNPC")
         {
