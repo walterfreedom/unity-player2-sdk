@@ -147,6 +147,14 @@ namespace player2_sdk
                     Agent agent = npcObject.GetComponent<Agent>();
                     agent.wholeMessageAndEventHistory += response.message;
                     npcstats.chatBubble.Show(response.message);
+
+                    // If a barter is active with this NPC, add the message to the log
+                    var barterUI = FindObjectOfType<BarterUI>();
+                    if (barterUI != null && barterUI.CurrentSession != null && barterUI.CurrentSession.NpcInventory.gameObject == npcObject)
+                    {
+                        barterUI.AddMessageToLog($"{npcstats.shortName}: {response.message}");
+                    }
+
                     var colls = Physics2D.OverlapCircleAll(npcObject.transform.position, 5f);
                     foreach (var col in colls)
                     {

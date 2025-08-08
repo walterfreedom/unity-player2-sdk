@@ -167,6 +167,95 @@ public class ExampleFunctionHandler: MonoBehaviour
             }
         }
 
+        if (functionCall.name == "StartBarter")
+        {
+            var args = (JObject)functionCall.arguments;
+            string targetPlayerName = (string)args["targetPlayer"];
+            GameObject player = GameObject.Find(targetPlayerName);
+            if (player != null)
+            {
+                var barterUI = FindObjectOfType<BarterUI>();
+                if (barterUI != null)
+                {
+                    barterUI.StartBarter(functionCall.aiObject.GetComponent<AIInventory>(), player.GetComponent<playerStats>());
+                }
+            }
+        }
+
+        if (functionCall.name == "AddItemToBarter")
+        {
+            var args = (JObject)functionCall.arguments;
+            string itemName = (string)args["itemName"];
+            int quantity = (int)args["quantity"];
+            var barterUI = FindObjectOfType<BarterUI>();
+            if (barterUI != null && barterUI.CurrentSession != null)
+            {
+                for (int i = 0; i < quantity; i++)
+                {
+                    var item = barterUI.CurrentSession.NpcInventory.TakeOne(itemName);
+                    if (item != null)
+                    {
+                        barterUI.CurrentSession.AddItemToNpcOffer(item);
+                    }
+                }
+            }
+        }
+
+        if (functionCall.name == "RemoveItemFromBarter")
+        {
+            var args = (JObject)functionCall.arguments;
+            string itemName = (string)args["itemName"];
+            int quantity = (int)args["quantity"];
+            var barterUI = FindObjectOfType<BarterUI>();
+            if (barterUI != null && barterUI.CurrentSession != null)
+            {
+                for (int i = 0; i < quantity; i++)
+                {
+                    var item = barterUI.CurrentSession.NpcOffer.Find(x => x.GetComponent<pickle>().itemname == itemName);
+                    if (item != null)
+                    {
+                        barterUI.CurrentSession.RemoveItemFromNpcOffer(item);
+                    }
+                }
+            }
+        }
+
+        if (functionCall.name == "AcceptBarter")
+        {
+            var barterUI = FindObjectOfType<BarterUI>();
+            if (barterUI != null && barterUI.CurrentSession != null)
+            {
+                barterUI.CurrentSession.IsNpcReady = true;
+                barterUI.UpdateUI(); // Update UI to show NPC is ready
+                if (barterUI.CurrentSession.IsPlayerReady)
+                {
+                    barterUI.CurrentSession.FinalizeTrade();
+                }
+            }
+        }
+
+        if (functionCall.name == "CancelBarter")
+        {
+            var barterUI = FindObjectOfType<BarterUI>();
+            if (barterUI != null && barterUI.CurrentSession != null)
+            {
+                barterUI.CancelTrade();
+            }
+        }
+
+        if (functionCall.name == "OfferMoney")
+        {
+            Debug.LogError("[AI Tool Call] OfferMoney called.");
+            var args = (JObject)functionCall.arguments;
+            int amount = (int)args["amount"];
+            var barterUI = FindObjectOfType<BarterUI>();
+            if (barterUI != null && barterUI.CurrentSession != null)
+            {
+                barterUI.CurrentSession.SetNpcMoneyOfferAmount(amount);
+                barterUI.UpdateUI(); // Ensure UI updates after money change
+            }
+        }
+
         p2.SendChatMessageAsync("System: Tool " +functionCall.name +  " executed successfully. Please proceed to further tools or chat, do not call this tool again right now.");
         //we need to query the AI again after tool call, to form a basic event chain
     }

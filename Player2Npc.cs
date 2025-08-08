@@ -103,7 +103,83 @@ public class Player2Npc : MonoBehaviour
                     character_description = characterDescription,
                     system_prompt = systemPrompt,
                     voice_id = "test",
-                    commands = npcManager.GetSerializableFunctions()
+                    commands = npcManager.GetSerializableFunctions().Concat(new List<SerializableFunction>
+                    {
+                        new SerializableFunction
+                        {
+                            name = "StartBarter",
+                            description = "Initiates a barter with a player.",
+                            parameters = new Parameters
+                            {
+                                Properties = new Dictionary<string, SerializedArguments>
+                                {
+                                    { "targetPlayer", new SerializedArguments { type = "string", description = "The name of the player to barter with." } }
+                                },
+                                required = new List<string> { "targetPlayer" }
+                            }
+                        },
+                        new SerializableFunction
+                        {
+                            name = "AddItemToBarter",
+                            description = "Adds an item to the barter offer.",
+                            parameters = new Parameters
+                            {
+                                Properties = new Dictionary<string, SerializedArguments>
+                                {
+                                    { "itemName", new SerializedArguments { type = "string", description = "The name of the item to add." } },
+                                    { "quantity", new SerializedArguments { type = "number", description = "The quantity of the item." } }
+                                },
+                                required = new List<string> { "itemName", "quantity" }
+                            }
+                        },
+                        new SerializableFunction
+                        {
+                            name = "RemoveItemFromBarter",
+                            description = "Removes an item from the barter offer.",
+                            parameters = new Parameters
+                            {
+                                Properties = new Dictionary<string, SerializedArguments>
+                                {
+                                    { "itemName", new SerializedArguments { type = "string", description = "The name of the item to remove." } },
+                                    { "quantity", new SerializedArguments { type = "number", description = "The quantity of the item." } }
+                                },
+                                required = new List<string> { "itemName", "quantity" }
+                            }
+                        },
+                        new SerializableFunction
+                        {
+                            name = "OfferMoney",
+                            description = "Offers a specified amount of money in the barter.",
+                            parameters = new Parameters
+                            {
+                                Properties = new Dictionary<string, SerializedArguments>
+                                {
+                                    { "amount", new SerializedArguments { type = "number", description = "The amount of money to offer." } }
+                                },
+                                required = new List<string> { "amount" }
+                            }
+                        },
+                        new SerializableFunction
+                        {
+                            name = "AcceptBarter",
+                            description = "Accepts the current barter deal.",
+                            parameters = new Parameters
+                            {
+                                Properties = new Dictionary<string, SerializedArguments>(),
+                                required = new List<string>()
+                            }
+                        },
+                        new SerializableFunction
+                        {
+                            name = "CancelBarter",
+                            description = "Cancels the current barter deal.",
+                            parameters = new Parameters
+                            {
+                                Properties = new Dictionary<string, SerializedArguments>(),
+                                required = new List<string>()
+                            }
+                        }
+                    }).ToList()
                 };
 
                 string url = $"{_baseUrl()}/npc/games/{_gameID()}/npcs/spawn";
