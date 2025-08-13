@@ -45,8 +45,11 @@ namespace player2_sdk
         private string shortName = "Victor";
 
         [SerializeField] private string fullName = "Victor J. Johnson";
-        [SerializeField] private string characterDescription = "A crazed scientist on the hunt for gold";
-        [SerializeField] private string systemPrompt = "You are a mad scientist obsessed with finding gold.";
+        [Tooltip("A description of the NPC, written in first person, used for the LLM to understand the character better.")]
+        [SerializeField] private string characterDescription = "I am crazed scientist on the hunt for gold!";
+        [Tooltip("The system prompt should be written the third person, describing the NPC's personality and behavior.")]
+        [SerializeField] private string systemPrompt = "Victor is a scientist obsessed with finding gold.";
+        [Tooltip("The voice ID to use for TTS. Can be found at localhost:4315/v1/tts/voices")]
         [SerializeField] public string voiceId = "01955d76-ed5b-7451-92d6-5ef579d3ed28";
         [SerializeField] private bool persistent = false;
 

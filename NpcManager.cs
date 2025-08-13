@@ -12,9 +12,13 @@ namespace player2_sdk
     [Serializable]
     public class Function
     {
+        [Tooltip("The name of the function, used by the LLM to call this function, so try to keep it short and to the point")]
         public string name;
+        [Tooltip("A short description of the function, used for explaining to the LLM what this function does")]
         public string description;
         public List<FunctionArgument> functionArguments;
+        [Tooltip("If true, this function will never respond with a message when called")]
+        public bool neverRespondWithMessage = false;
 
         public SerializableFunction ToSerializableFunction()
         {
@@ -40,7 +44,8 @@ namespace player2_sdk
                 {
                     Properties = props,
                     required = functionArguments.FindAll(arg => arg.required).ConvertAll(arg => arg.argumentName),
-                }
+                },
+                neverRespondWithMessage = neverRespondWithMessage
             };
         }
     }
@@ -59,14 +64,23 @@ namespace player2_sdk
 
     public class NpcManager : MonoBehaviour
     {
-        [Header("Config")] [SerializeField] public string gameId = null;
-
-        [SerializeField] public bool TTS = false;
+        
+        [Header("Config")] 
+        [SerializeField] 
+        [Tooltip("The Game ID is used to identify your game instance. It should be descriptive and unique, like 'my-shooting-game'")]
+        public string gameId = null;
+        [SerializeField] 
+        [Tooltip("If true, the NPCs will use Text-to-Speech (TTS) to speak their responses. Requires a valid voice_id in the SpawnNpc configuration.")]
+        public bool TTS = false;
         
         private Player2NpcResponseListener _responseListener;
-
+        
         [Header("Functions")] [SerializeField] public List<Function> functions;
-        [SerializeField] public UnityEvent<FunctionCall> functionHandler;
+        
+        
+        [SerializeField] 
+        [Tooltip("This event is triggered when a function call is received from the NPC. See the `ExampleFunctionHandler` script for how to handle these calls.")]
+        public UnityEvent<FunctionCall> functionHandler;
 
         public readonly JsonSerializerSettings JsonSerializerSettings = new JsonSerializerSettings
         {
@@ -236,7 +250,7 @@ namespace player2_sdk
         public string name;
         public string description;
         public Parameters parameters;
-
+        public bool neverRespondWithMessage;
     }
 
     [Serializable]
