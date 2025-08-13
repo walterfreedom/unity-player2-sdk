@@ -59,7 +59,7 @@ namespace player2_sdk
 
     public class NpcManager : MonoBehaviour
     {
-        [Header("Config")] [SerializeField] public string gameId = "your-game-id";
+        [Header("Config")] [SerializeField] public string gameId = null;
 
         [SerializeField] public bool TTS = false;
         
@@ -99,6 +99,11 @@ namespace player2_sdk
 
         private void Awake()
         {
+            if (string.IsNullOrEmpty(gameId))
+            {
+                Debug.LogError("NpcManager requires a Game ID to be set.", this);
+                return;
+            }
             // Add the component and configure it
             _responseListener = gameObject.AddComponent<Player2NpcResponseListener>();
             _responseListener.SetGameId(gameId);
@@ -106,7 +111,13 @@ namespace player2_sdk
 
             Debug.Log($"NpcManager initialized with gameId: {gameId}");
         }
-
+        private void OnValidate()
+        {
+            if (string.IsNullOrEmpty(gameId) || gameId == "your-game-id")
+            {
+                Debug.LogError("NpcManager requires a Game ID to be set.", this);
+            }
+        }
         private void Start()
         {
             // Ensure listener starts after all components are initialized

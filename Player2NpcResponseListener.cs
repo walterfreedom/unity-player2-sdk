@@ -39,8 +39,8 @@ namespace player2_sdk
             return new FunctionCall
             {
                 name = name,
-            arguments = args,
-            aiObject = ai
+                arguments = args,
+                aiObject = ai
             };
         }
     }
@@ -50,7 +50,7 @@ namespace player2_sdk
     {
         public string name;
         public JObject arguments;
-    public GameObject aiObject;
+        public GameObject aiObject;
     }
 
 
