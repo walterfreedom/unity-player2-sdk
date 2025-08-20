@@ -242,6 +242,18 @@ public class ExampleFunctionHandler: MonoBehaviour
                 barterUI.CancelTrade();
             }
         }
+        
+        if (functionCall.name == "equip")
+        {
+            var args = (JObject)functionCall.arguments;
+            string itemname = (string)args["itemName"];
+            print("Itemname "+ itemname);
+            bodyClothingArmor bca = functionCall.aiObject.GetComponent<bodyClothingArmor>();
+            AIInventory aiInventory = functionCall.aiObject.GetComponent<AIInventory>();
+            GameObject item = aiInventory.TakeAsReference(itemname);
+            bca.Equip(item.GetComponent<Wearable>());
+           
+        }
 
         if (functionCall.name == "OfferMoney")
         {
